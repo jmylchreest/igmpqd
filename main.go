@@ -46,7 +46,8 @@ func main() {
 	signalC := make(chan os.Signal, 1)
 	signal.Notify(signalC, os.Interrupt)
 	go func() {
-		for t := range tickC {
+		// for t := range tickC {
+		for _ = range tickC {
 			// fmt.Println("Tick at", t)
 			// Send packet
 			conn, err := net.DialTimeout("ip:igmp", dstAddress.String(), timeoutDuration)
