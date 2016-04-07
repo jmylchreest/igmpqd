@@ -6,3 +6,5 @@ all:
 	gox -arch="386 amd64 arm" -os="linux darwin windows" \
 	-ldflags="-X main.GitCommit=$(GITCOMMIT) -X main.GitDescribe=$(GITDESCRIBE) -X main.BuildTime=$(BUILD_EPOCH)" \
 	-output="bin/{{.OS}}/{{.Arch}}/{{.Dir}}"
+
+	/bin/bash ./build-release-bins.sh
