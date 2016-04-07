@@ -100,9 +100,9 @@ func init() {
 
 	runCmd.PersistentFlags().Bool("debug", false, "Enable debug messages to stderr.")
 	runCmd.PersistentFlags().StringP("grpAddress", "g", "0.0.0.0", "Specified IP address to use as the Group Address. Used to query for specific group members.")
-	runCmd.PersistentFlags().StringP("dstAddress", "d", "224.0.0.1", "Specified IP address to send the IGMP Query to. (Defaults to: 224.0.0.1)")
-	runCmd.PersistentFlags().IntP("interval", "i", 30, "The time in seconds to delay between sending IGMP Query messages. (Defaults to: 30)")
-	runCmd.PersistentFlags().IntP("maxResponseTime", "m", 100, "Specifies the maximum allowed time before sending a responding report in units of 1/10 second. (Defaults to: 100)")
+	runCmd.PersistentFlags().StringP("dstAddress", "d", "224.0.0.1", "Specified IP address to send the IGMP Query to.")
+	runCmd.PersistentFlags().IntP("interval", "i", 30, "The time in seconds to delay between sending IGMP Query messages.")
+	runCmd.PersistentFlags().IntP("maxResponseTime", "m", 100, "Specifies the maximum allowed time before sending a responding report in units of 1/10 second.")
 
 	viper.BindPFlag("debug", runCmd.PersistentFlags().Lookup("debug"))
 	viper.BindPFlag("grpAddress", runCmd.PersistentFlags().Lookup("grpAddress"))
