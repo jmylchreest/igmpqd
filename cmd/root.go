@@ -18,17 +18,38 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-package main
+package cmd
 
 import (
-	"strconv"
+	"fmt"
+	"os"
 
-	"github.com/jmylchreest/igmpqd/cmd"
+	"github.com/spf13/cobra"
 )
 
-func main() {
-	cmd.GitCommit = GitCommit
-	cmd.GitDescribe = GitDescribe
-	cmd.BuildTime, _ = strconv.ParseInt(BuildTime, 0, 64)
-	cmd.Execute()
+var (
+	// GitCommit is exported to allow remote setting
+	GitCommit string
+	// GitDescribe is exported to allow remote setting
+	GitDescribe string
+	// BuildTime is the epoch of when the tool was builddefaultConfigFile
+	BuildTime int64
+)
+
+// RootCmd is the entry command for cobra
+var RootCmd = &cobra.Command{
+	Use:   "igmpqd",
+	Short: "igmpqd is a lightweight IGMPv2 Query daemon.",
+	Long: `igmpqd is a lightweight and simple IGMPv2 query daemon, designed to do
+just enough when it comes to maintaining IGMP memberships in environments that
+don't have a dedicated Query mechanism.`,
+}
+
+// Execute adds all child commands to the root command sets flags appropriately.
+// This is called by main.main(). It only needs to happen once to the rootCmd.
+func Execute() {
+	if err := RootCmd.Execute(); err != nil {
+		fmt.Println(err)
+		os.Exit(-1)
+	}
 }
