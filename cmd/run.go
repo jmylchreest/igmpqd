@@ -27,10 +27,12 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"runtime"
 	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"golang.org/x/net/ipv4"
 )
 
 // runCmd represents the run command
@@ -45,8 +47,10 @@ var runCmd = &cobra.Command{
 		debug(fmt.Sprintf("%15s: %s", "commit", GitCommit))
 		debug(fmt.Sprintf("%15s: %s", "grpAddress", viper.GetString("grpAddress")))
 		debug(fmt.Sprintf("%15s: %s", "dstAddress", viper.GetString("dstAddress")))
+		debug(fmt.Sprintf("%15s: %s", "interface", viper.GetString("interface")))
 		debug(fmt.Sprintf("%15s: %d", "maxResponseTime", viper.GetInt("maxResponseTime")))
 		debug(fmt.Sprintf("%15s: %d", "interval", viper.GetInt("interval")))
+		debug(fmt.Sprintf("%15s: %d", "ttl", viper.GetInt("ttl")))
 
 		tickC := time.NewTicker(time.Second * time.Duration(viper.GetInt("interval"))).C
 		signalC := make(chan os.Signal, 1)
@@ -64,7 +68,6 @@ var runCmd = &cobra.Command{
 func sendPacket() {
 	var payload []byte
 
-	timeoutDuration, _ := time.ParseDuration("10s")
 	grpAddress := net.ParseIP(viper.GetString("grpAddress"))
 	dstAddress := net.ParseIP(viper.GetString("dstAddress"))
 
@@ -78,21 +81,52 @@ func sendPacket() {
 	payload[7] = grpAddress.To4()[3]
 	binary.BigEndian.PutUint16(payload[2:], genChecksum(payload, 0))
 
-	// Send packet
 	debug("opening socket.")
-	conn, err := net.DialTimeout("ip:igmp", dstAddress.String(), timeoutDuration)
+	// inspired by https://godoc.org/golang.org/x/net/ipv4#example-RawConn--AdvertisingOSPFHello
+	c, err := net.ListenPacket("ip4:2", "0.0.0.0") // IGMP
+	if err != nil {
+		log.Fatal("Error occured. ", err)
+	}
+	defer debug("closing socket.")
+	defer c.Close()
+
+	r, err := ipv4.NewRawConn(c)
 	if err != nil {
 		log.Fatal("Error occured. ", err)
 	}
 
-	debug(fmt.Sprintf("sending payload: %d", payload))
-	_, err = conn.Write(payload)
-	if err != nil {
-		log.Fatal("Error occured. ", err)
+	iph := &ipv4.Header{
+		Version:  ipv4.Version,
+		Len:      ipv4.HeaderLen,
+		TOS:      0xc0, // DSCP CS6
+		TotalLen: ipv4.HeaderLen + len(payload),
+		TTL:      viper.GetInt("ttl"),
+		Protocol: 2,
+		Dst:      dstAddress.To4(),
 	}
 
-	debug("closing socket.")
-	conn.Close()
+	var cm *ipv4.ControlMessage
+
+	interfaceName := viper.GetString("interface")
+	if interfaceName != "" {
+		netif, err := net.InterfaceByName(interfaceName)
+		if err != nil {
+			log.Fatal(err)
+		}
+		switch runtime.GOOS {
+		case "darwin", "linux":
+			cm = &ipv4.ControlMessage{IfIndex: netif.Index}
+		default:
+			if err := r.SetMulticastInterface(netif); err != nil {
+				log.Fatal(err)
+			}
+		}
+	}
+
+	if err := r.WriteTo(iph, payload, cm); err != nil {
+		log.Fatal(err)
+	}
+
 }
 
 func init() {
@@ -101,13 +135,17 @@ func init() {
 	runCmd.PersistentFlags().Bool("debug", false, "Enable debug messages to stderr.")
 	runCmd.PersistentFlags().StringP("grpAddress", "g", "0.0.0.0", "Specified IP address to use as the Group Address. Used to query for specific group members.")
 	runCmd.PersistentFlags().StringP("dstAddress", "d", "224.0.0.1", "Specified IP address to send the IGMP Query to.")
+	runCmd.PersistentFlags().StringP("interface", "I", "", "Specified network interface to send the IGMP Query.")
 	runCmd.PersistentFlags().IntP("interval", "i", 30, "The time in seconds to delay between sending IGMP Query messages.")
+	runCmd.PersistentFlags().IntP("ttl", "t", 1, "The TTL of the IGMP Query.")
 	runCmd.PersistentFlags().IntP("maxResponseTime", "m", 100, "Specifies the maximum allowed time before sending a responding report in units of 1/10 second.")
 
 	viper.BindPFlag("debug", runCmd.PersistentFlags().Lookup("debug"))
 	viper.BindPFlag("grpAddress", runCmd.PersistentFlags().Lookup("grpAddress"))
 	viper.BindPFlag("dstAddress", runCmd.PersistentFlags().Lookup("dstAddress"))
+	viper.BindPFlag("interface", runCmd.PersistentFlags().Lookup("interface"))
 	viper.BindPFlag("interval", runCmd.PersistentFlags().Lookup("interval"))
+	viper.BindPFlag("ttl", runCmd.PersistentFlags().Lookup("ttl"))
 	viper.BindPFlag("maxResponseTime", runCmd.PersistentFlags().Lookup("maxResponseTime"))
 }
 

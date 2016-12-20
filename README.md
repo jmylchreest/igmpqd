@@ -36,8 +36,12 @@ Flags:
   -g, --grpAddress string     Specified IP address to use as the Group Address.
                               Used to query for specific group members.
                               (default "0.0.0.0")
+  -I, --interface string      Specified interface to send the IGMP Query.
+                              (no default)
   -i, --interval int          The time in seconds to delay between sending IGMP
                               Query messages. (default 30)
+  -t, --ttl int               The TTL of the IGMP Query.
+                              (default 1)
   -m, --maxResponseTime int   Specifies the maximum allowed time before sending
                               a responding report in units of 1/10 second.
                               (default 100)
